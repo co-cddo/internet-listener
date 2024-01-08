@@ -4,7 +4,7 @@ A simple endpoint for logging various HTTP requests such as Content Security Pol
 ## Content Security Policy (CSP) reports
 For CSPs, use the following endpoint: `https://csp1.ingest.service.security.gov.uk/report`
 
-> Note: for compatibility you should include both a **report-uri** and **report-to** in the CSP header value, **report-to** requires a separate header configured with the reporting endpoint details. See [CSP reporting directives on Mozilla](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy#reporting_directives) for more information.
+**Note**: for compatibility you should include both a **report-uri** and **report-to** in the CSP header value, **report-to** requires a separate header configured with the reporting endpoint details. See [CSP reporting directives on Mozilla](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy#reporting_directives) for more information.
 
 ### Trusted Types
 
@@ -28,4 +28,4 @@ An example page is deployed to <https://gc3.security.gov.uk/csp-testing> which p
 To more easily identify web requests during testing, a specific subdomain of `ingest.service.security.gov.uk` should be used. For example, if you wanted to do some `POST` tests on the 8th Jan 2024, you could use: `post-testing-20240108.ingest.service.security.gov.uk`.
 
 ## Contact
-If you have any queries about the listener, please contact `tech[at]gc3.security.gov.uk`.
+If you have any queries about the listener, please contact `tech[at]gc3.security.gov.uk` or use the [#ask-gc3 channel in x-gov Slack](https://ukgovernmentdigital.slack.com/archives/C066WUHDJ10).
