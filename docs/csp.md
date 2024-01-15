@@ -14,8 +14,8 @@ As per [guidance on web.dev](https://web.dev/articles/trusted-types#add_a_report
 
 |Header Key|Header Value|
 |-|-|
-|Report-To|{"group": "primary", "max_age": 86400, "endpoints": [{ "url": "https://csp1.ingest.service.security.gov.uk/report" }]}|
-|Content-Security-Policy-Report-Only|require-trusted-types-for 'script'; report-uri https://csp1.ingest.service.security.gov.uk/report; report-to primary|
+|Report-To|`{"group": "primary", "max_age": 86400, "endpoints": [{ "url": "https://csp1.ingest.service.security.gov.uk/report" }]}`|
+|Content-Security-Policy-Report-Only|`require-trusted-types-for 'script'; report-uri https://csp1.ingest.service.security.gov.uk/report; report-to primary`|
 
 ### Live CSP Example
 
@@ -23,5 +23,5 @@ An example page is deployed to <https://gc3.security.gov.uk/csp-testing> which p
 
 |Header Key|Header Value|
 |-|-|
-|Report-To|{"group": "primary", "max_age": 86400, "endpoints": [{ "url": "https://csp1.ingest.service.security.gov.uk/report" }]}|
-|Content-Security-Policy|default-src 'none'; report-uri https://csp1.ingest.service.security.gov.uk/report; report-to primary|
+|Report-To|`{"group": "primary", "max_age": 86400, "endpoints": [{ "url": "https://csp1.ingest.service.security.gov.uk/report" }]}`|
+|Content-Security-Policy|`default-src 'none'; report-uri https://csp1.ingest.service.security.gov.uk/report; report-to primary`|
