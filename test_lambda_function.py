@@ -1,4 +1,8 @@
+import os
 import unittest
+
+os.environ["ALLOWED_CSP_SOURCES"] = "example, testing.com, example.com"
+
 from lambda_function import lambda_handler
 
 
@@ -29,7 +33,7 @@ class TestLambdaFunction(unittest.TestCase):
                 "content-type": "application/reports+json",
                 "x-cloudfront": "",
             },
-            "body": '[{"age":1396,"body":{"blockedURL":"https://example/favicon.ico","disposition":"report","documentURL":"https://example/csp-testing","effectiveDirective":"img-src","originalPolicy":"default-src \'none\'; report-uri https://csp.testing.example; report-to primary","referrer":"https://www.google.com/","sample":"","statusCode":200},"type":"csp-violation","url":"https://example/csp-testing","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},{"age":1428,"body":{"blockedURL":"https://example/test.png","disposition":"report","documentURL":"https://example/csp-testing","effectiveDirective":"img-src","originalPolicy":"default-src \'none\'; report-uri https://csp.testing.example; report-to primary","referrer":"https://www.google.com/","sample":"","statusCode":200},"type":"csp-violation","url":"https://example/csp-testing","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}]',
+            "body": '[{"age":1396,"body":{"blockedURL":"https://example/favicon.ico","disposition":"report","documentURL":"https://subdomain.testing.com/csp-testing","effectiveDirective":"img-src","originalPolicy":"default-src \'none\'; report-uri https://csp.testing.example; report-to primary","referrer":"https://www.google.com/","sample":"","statusCode":200},"type":"csp-violation","url":"https://example/csp-testing","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},{"age":1428,"body":{"blockedURL":"https://example/test.png","disposition":"report","documentURL":"https://example/csp-testing","effectiveDirective":"img-src","originalPolicy":"default-src \'none\'; report-uri https://csp.testing.example; report-to primary","referrer":"https://www.google.com/","sample":"","statusCode":200},"type":"csp-violation","url":"https://example/csp-testing","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}]',
             "isBase64Encoded": False,
         }
         res = lambda_handler(event, {})
@@ -49,6 +53,22 @@ class TestLambdaFunction(unittest.TestCase):
             "isBase64Encoded": True,
         }
         res = lambda_handler(event, {})
+        self.assertEqual(res["statusCode"], 502)
+
+    def test_lambda_handler_generic(self):
+        """
+        Generic request
+        """
+        event = {
+            "headers": {
+                "x-true-host": "csp.testing.example",
+                "content-type": "text/plain",
+                "x-cloudfront": "",
+            },
+            "body": "abc",
+            "isBase64Encoded": False,
+        }
+        res = lambda_handler(event, {})
         self.assertEqual(res["statusCode"], 200)
 
     def test_lambda_handler_bad_xcf(self):
@@ -62,6 +82,22 @@ class TestLambdaFunction(unittest.TestCase):
                 "x-cloudfront": "123",
             },
             "body": "",
+            "isBase64Encoded": False,
+        }
+        res = lambda_handler(event, {})
+        self.assertEqual(res["statusCode"], 502)
+
+    def test_lambda_handler_bad_csp_domain(self):
+        """
+        Bad document_uri domain
+        """
+        event = {
+            "headers": {
+                "x-true-host": "csp.testing.example",
+                "content-type": "application/reports+json",
+                "x-cloudfront": "",
+            },
+            "body": '[{"age":1396,"body":{"blockedURL":"https://example/favicon.ico","disposition":"report","documentURL":"https://bad-example.com/csp-testing","effectiveDirective":"img-src","originalPolicy":"default-src \'none\'; report-uri https://csp.testing.example; report-to primary","referrer":"https://www.google.com/","sample":"","statusCode":200},"type":"csp-violation","url":"https://example/csp-testing","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},{"age":1428,"body":{"blockedURL":"https://example/test.png","disposition":"report","documentURL":"https://example/csp-testing","effectiveDirective":"img-src","originalPolicy":"default-src \'none\'; report-uri https://csp.testing.example; report-to primary","referrer":"https://www.google.com/","sample":"","statusCode":200},"type":"csp-violation","url":"https://example/csp-testing","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}]',
             "isBase64Encoded": False,
         }
         res = lambda_handler(event, {})

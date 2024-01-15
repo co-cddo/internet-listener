@@ -5,6 +5,7 @@ import random
 import string
 import os
 import base64
+import re
 
 
 from datetime import datetime
@@ -13,6 +14,20 @@ from datetime import datetime
 S3_BUCKETNAME = os.getenv("S3_BUCKETNAME")
 S3_PREFIX = os.getenv("S3_PREFIX")
 CLOUDFRONT_SECRET = os.getenv("CLOUDFRONT_SECRET", "")
+
+raw_egr = os.getenv("ENABLE_GENERIC_REQUESTS", "true")
+ENABLE_GENERIC_REQUESTS = (
+    raw_egr.lower()[0] in ["t", "1"] if raw_egr and len(raw_egr) > 0 else False
+)
+print("ENABLE_GENERIC_REQUESTS:", ENABLE_GENERIC_REQUESTS)
+
+raw_acs = os.getenv("ALLOWED_CSP_SOURCES", "")
+ALLOWED_CSP_SOURCES = [
+    x.strip().strip(".")
+    for x in raw_acs.lower().split(",")
+    if len(x.strip().strip(".")) > 0
+]
+print("ALLOWED_CSP_SOURCES:", ALLOWED_CSP_SOURCES)
 
 
 def normalise_dict(d: dict = None, prefix: str = ""):
@@ -103,65 +118,62 @@ def is_csp_report(event: dict) -> bool:
 
 def normalise_csp_report(csp_report: dict):
     if "blockedURL" in csp_report:
-        csp_report["blocked_uri"] = csp_report["blockedURL"]
+        csp_report["blocked-uri"] = csp_report["blockedURL"]
         del csp_report["blockedURL"]
 
     if "documentURL" in csp_report:
-        csp_report["document_uri"] = csp_report["documentURL"]
+        csp_report["document-uri"] = csp_report["documentURL"]
         del csp_report["documentURL"]
 
+    if ALLOWED_CSP_SOURCES:
+        raw_docuri = csp_report.get("document-uri", "")
+        matched_domain = re.search(r"^\w+://([^/]+)", raw_docuri)
+        if not matched_domain:
+            raise Exception("Invalid domain in document-uri", raw_docuri)
+        parsed_domain = matched_domain.group(1).lower()
+        valid_domain = False
+        for x in ALLOWED_CSP_SOURCES:
+            if parsed_domain == x:
+                valid_domain = True
+                break
+            if parsed_domain.endswith("." + x):
+                valid_domain = True
+                break
+        if not valid_domain:
+            raise Exception("Not authorised domain in document-uri", parsed_domain)
+
     if "effectiveDirective" in csp_report:
-        csp_report["effective_directive"] = csp_report["effectiveDirective"]
+        csp_report["effective-directive"] = csp_report["effectiveDirective"]
         del csp_report["effectiveDirective"]
 
     if "originalPolicy" in csp_report:
-        csp_report["original_policy"] = csp_report["originalPolicy"]
+        csp_report["original-policy"] = csp_report["originalPolicy"]
         del csp_report["originalPolicy"]
 
     if "statusCode" in csp_report:
-        csp_report["status_code"] = csp_report["statusCode"]
+        csp_report["status-code"] = csp_report["statusCode"]
         del csp_report["statusCode"]
     return csp_report
 
 
 def process_csp_report(event: dict) -> dict:
     res = []
-    try:
-        body = event["body"]
-        if "isBase64Encoded" in event and event["isBase64Encoded"]:
-            body = base64.b64decode(body)
-        jcsp = json.loads(body)
-        if type(jcsp) != list and "csp-report" in jcsp:
-            res = [normalise_csp_report(jcsp["csp-report"])]
-        elif type(jcsp) == list and len(jcsp) > 0:
-            for item in jcsp:
-                if "body" in item:
-                    res.append(normalise_csp_report(item["body"]))
-    except Exception as e:
-        print("process_csp_report:error:", e)
+
+    body = event["body"]
+    if "isBase64Encoded" in event and event["isBase64Encoded"]:
+        body = base64.b64decode(body)
+    jcsp = json.loads(body)
+    if type(jcsp) != list and "csp-report" in jcsp:
+        res = [normalise_csp_report(jcsp["csp-report"])]
+    elif type(jcsp) == list and len(jcsp) > 0:
+        for item in jcsp:
+            if "body" in item:
+                res.append(normalise_csp_report(item["body"]))
+
     return res
 
 
-def lambda_handler(event, context):
-    if "headers" in event:
-        if "x-cloudfront" in event["headers"]:
-            if event["headers"]["x-cloudfront"] == CLOUDFRONT_SECRET:
-                del event["headers"]["x-cloudfront"]
-
-                obj = {"event": event, "context": context}
-
-                if is_csp_report(event):
-                    obj["csp"] = process_csp_report(event)
-
-                jprint(obj)
-                return {
-                    "statusCode": 200,
-                    "headers": {
-                        "Content-Type": "text/html; charset=utf-8",
-                    },
-                    "body": "OK",
-                    "isBase64Encoded": False,
-                }
+def bad_response():
     return {
         "statusCode": 502,
         "headers": {
@@ -170,3 +182,37 @@ def lambda_handler(event, context):
         "body": "Bad Gateway",
         "isBase64Encoded": False,
     }
+
+
+def lambda_handler(event, context):
+    xcf = event.get("headers", {}).get("x-cloudfront", "")
+    if xcf:
+        del event["headers"]["x-cloudfront"]
+
+    if CLOUDFRONT_SECRET != xcf:
+        return bad_response()
+
+    obj = {"event": event, "context": context}
+
+    handle_request = ENABLE_GENERIC_REQUESTS
+
+    if is_csp_report(event):
+        try:
+            obj["csp"] = process_csp_report(event)
+            handle_request = True
+        except Exception as e:
+            print("lambda_handler:process_csp_report:error:", e)
+            handle_request = False
+
+    if handle_request:
+        jprint(obj)
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "text/html; charset=utf-8",
+            },
+            "body": "OK",
+            "isBase64Encoded": False,
+        }
+
+    return bad_response()

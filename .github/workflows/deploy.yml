@@ -1,0 +1,72 @@
+name: 'Internet Listener Deploy'
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - *.py
+      - requirements.txt
+      - .github/workflows/deploy.yml
+  workflow_dispatch:
+env:
+  # Setting an environment variable with the value of a configuration variable
+  AWS_REGION: eu-west-2
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+    
+    - uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+    
+    - name: Test
+      run: |
+        ls -lah
+        python test_lambda_function.py
+    
+    - name: configure aws credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        role-session-name: ${{ github.run_id }}-${{ github.event_name }}-${{ github.job }}
+        aws-region: eu-west-2
+    
+    - name: Test AWS access
+      run: |
+        aws sts get-caller-identity
+        ls -lah
+
+    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+    - name: Terraform Init
+      run: terraform init
+
+    # Checks that all Terraform configuration files adhere to a canonical format
+    - name: Terraform Format
+      run: terraform fmt -check
+
+    # Generates an execution plan for Terraform
+    - name: Terraform Apply
+      run: |
+        terraform workspace select prod
+        terraform apply -auto-approve \
+          -input=false \
+          -var="production_iam_role=${{ secrets.PRODUCTION_IAM_ROLE }}" \
+          -var="cloudfront_secret=${{ secrets.CLOUDFRONT_SECRET }}" \
+          -var="s3_prefix=${{ secrets.S3_PREFIX }}" \
+          -var="logging_bucket_name=${{ secrets.LOGGING_BUCKET_NAME }}"
