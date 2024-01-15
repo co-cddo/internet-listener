@@ -1,6 +1,9 @@
 # Architecture
 
-The below diagram is how the central ingest endpoint is configured with other resources such as CloudFront and S3.
+The below diagram is how the central endpoint for UK government is configured with other resources such as CloudFront and S3.
+
+The primary purpose of CloudFront is to have custom domains for the listener rather than a random Lambda function URL. This allows the service to adapt the origin, potentially to something other than Lambda, in future without needing to communicate a URL change.
+
 
 ```
           ┌──────────┐  ┌──────────────────┐
