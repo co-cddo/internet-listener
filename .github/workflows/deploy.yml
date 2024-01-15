@@ -38,6 +38,7 @@ jobs:
     - name: Test
       run: |
         ls -lah
+        python -m pip install -r requirements.txt
         python test_lambda_function.py
     
     - name: configure aws credentials
